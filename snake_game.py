@@ -1,302 +1,248 @@
 import pygame
+import time
 import random
+import sys
+import os
 
 pygame.init()
 
-white = (255, 255, 255)
-black = (0, 0, 0)
-red = (213, 50, 80)
-green = (0, 255, 0)
-blue = (50, 153, 213)
-gray = (100, 100, 100)
-yellow = (255, 255, 0)
-dark_gray = (40, 40, 40)
+WIDTH, HEIGHT = 800, 600
+BLOCK = 20
+FPS = 10
+NUM_OBSTACLES = 20  
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED   = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE  = (0, 0, 255)
+YELLOW = (255, 255, 0)
+PURPLE = (128, 0, 128)
+ORANGE = (255, 165, 0)
+CYAN = (0, 255, 255)
+GRAY = (80, 80, 80) 
 
-width = 600
-height = 400
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Snake Game by TuanVV")
+SNAKE_COLORS = [GREEN, BLUE, YELLOW, PURPLE, ORANGE, CYAN]
 
+win = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("🐍 Snake Game Plus with Obstacles")
 clock = pygame.time.Clock()
-snakeBlock = 10
-font = pygame.font.SysFont("bahnschrift", 25)
-scoreFont = pygame.font.SysFont("comicsansms", 25)
 
-skins = [
-    {"name": "Default Green", "color": (0, 255, 0), "unlock_score": 0},
-    {"name": "Deep Blue", "color": (0, 0, 255), "unlock_score": 5},
-    {"name": "Bright Red", "color": (255, 0, 0), "unlock_score": 10},
-    {"name": "Orange Glow", "color": (255, 165, 0), "unlock_score": 15},
-    {"name": "Purple Mist", "color": (128, 0, 128), "unlock_score": 20},
-    {"name": "Cyan Breeze", "color": (0, 255, 255), "unlock_score": 25},
-    {"name": "Hot Pink", "color": (255, 105, 180), "unlock_score": 30},
-    {"name": "Yellow Flash", "color": (255, 255, 0), "unlock_score": 35},
-    {"name": "Lime Zest", "color": (50, 205, 50), "unlock_score": 40},
-    {"name": "Coral Reef", "color": (255, 127, 80), "unlock_score": 45},
-    {"name": "Steel Blue", "color": (70, 130, 180), "unlock_score": 50},
-]
+font = pygame.font.SysFont("comicsansms", 30)
+big_font = pygame.font.SysFont("comicsansms", 50)
 
-current_skin_index = 0
-unlocked_skins = {0}
-
-map_scale = 0.1
-map_width = int(width * map_scale)
-map_height = int(height * map_scale)
-map_x = width - map_width - 10
-map_y = 10
+HIGHSCORE_FILE = "highscore.txt"
 
 def load_highscore():
-    try:
-        with open("highscore.txt", "r") as f:
-            return int(f.read())
-    except:
+    if not os.path.exists(HIGHSCORE_FILE):
         return 0
+    with open(HIGHSCORE_FILE, 'r') as f:
+        try:
+            return int(f.read().strip())
+        except:
+            return 0
 
-def save_highscore(highscore):
-    with open("highscore.txt", "w") as f:
-        f.write(str(highscore))
+def save_highscore(score):
+    with open(HIGHSCORE_FILE, 'w') as f:
+        f.write(str(score))
 
-def draw_score(score):
-    value = scoreFont.render(f"Score: {score}", True, white)
-    screen.blit(value, [10, 10])
-
-def draw_speed(speed):
-    speed_text = scoreFont.render(f"Speed: {speed}", True, white)
-    screen.blit(speed_text, [10, 40])
-
-def draw_highscore(highscore):
-    highscore_text = scoreFont.render(f"High Score: {highscore}", True, white)
-    screen.blit(highscore_text, [10, 70])
-
-def draw_snake(snake_block, snake_list, direction, skin_color):
-    for i, pos in enumerate(snake_list):
-        pygame.draw.rect(screen, skin_color, [pos[0], pos[1], snake_block, snake_block])
-        if i == len(snake_list) - 1:
-            x_change, y_change = direction
-            eye_radius = 2
-            if x_change > 0:
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 3, pos[1] + 3), eye_radius)
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 3, pos[1] + snake_block - 6), eye_radius)
-                pygame.draw.rect(screen, red, [pos[0] + snake_block, pos[1] + snake_block // 2 - 1, 5, 2])
-            elif x_change < 0:
-                pygame.draw.circle(screen, black, (pos[0] + 3, pos[1] + 3), eye_radius)
-                pygame.draw.circle(screen, black, (pos[0] + 3, pos[1] + snake_block - 6), eye_radius)
-                pygame.draw.rect(screen, red, [pos[0] - 5, pos[1] + snake_block // 2 - 1, 5, 2])
-            elif y_change > 0:
-                pygame.draw.circle(screen, black, (pos[0] + 3, pos[1] + snake_block - 3), eye_radius)
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 6, pos[1] + snake_block - 3), eye_radius)
-                pygame.draw.rect(screen, red, [pos[0] + snake_block // 2 - 1, pos[1] + snake_block, 2, 5])
-            elif y_change < 0:
-                pygame.draw.circle(screen, black, (pos[0] + 3, pos[1] + 3), eye_radius)
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 6, pos[1] + 3), eye_radius)
-                pygame.draw.rect(screen, red, [pos[0] + snake_block // 2 - 1, pos[1] - 5, 2, 5])
-            else:
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 3, pos[1] + 3), eye_radius)
-                pygame.draw.circle(screen, black, (pos[0] + snake_block - 3, pos[1] + snake_block - 6), eye_radius)
-                pygame.draw.rect(screen, red, [pos[0] + snake_block, pos[1] + snake_block // 2 - 1, 5, 2])
-
-def message(msg, color):
-    mesg = font.render(msg, True, color)
-    screen.blit(mesg, [width / 6, height / 3])
-
-def generate_obstacles(num=10):
-    obstacles = []
-    for _ in range(num):
-        x = round(random.randrange(0, width - 60) / 10.0) * 10.0
-        y = round(random.randrange(0, height - 10) / 10.0) * 10.0
-        length = random.choice([30, 40, 50])
-        orientation = random.choice(['horizontal', 'vertical'])
-        obs_rect = []
-        for i in range(length // snakeBlock):
-            if orientation == 'horizontal':
-                obs_rect.append([x + i * snakeBlock, y])
-            else:
-                obs_rect.append([x, y + i * snakeBlock])
-        obstacles.extend(obs_rect)
-    return obstacles
+def generate_obstacles(snake_positions, food_position):
+    obstacles = set()
+    max_attempts = 1000
+    attempts = 0
+    while len(obstacles) < NUM_OBSTACLES and attempts < max_attempts:
+        ox = random.randrange(0, WIDTH, BLOCK)
+        oy = random.randrange(0, HEIGHT, BLOCK)
+        if (ox, oy) not in snake_positions and (ox, oy) != food_position:
+            obstacles.add((ox, oy))
+        attempts += 1
+    return list(obstacles)
 
 def draw_obstacles(obstacles):
-    for obs in obstacles:
-        pygame.draw.rect(screen, gray, [obs[0], obs[1], snakeBlock, snakeBlock])
+    for (ox, oy) in obstacles:
+        pygame.draw.rect(win, GRAY, [ox, oy, BLOCK, BLOCK], border_radius=4)
 
-def is_position_free(x, y, obstacles):
-    for obs in obstacles:
-        if x == obs[0] and y == obs[1]:
-            return False
-    return True
+def draw_snake(snake_list, color, direction):
+    for i, segment in enumerate(snake_list):
+        pygame.draw.rect(win, color, [segment[0], segment[1], BLOCK, BLOCK], border_radius=4)
+        if i == len(snake_list) - 1: 
+            draw_eyes_and_tongue(segment, direction)
 
-def random_food_position(obstacles):
+def draw_eyes_and_tongue(head, direction):
+    x, y = head
+    eye_radius = 3
+    tongue_length = 10
+
+    dx, dy = direction
+
+    if dx == 0 and dy == 0:
+        eye_pos = [(x + 5, y + 5), (x + BLOCK - 5, y + 5)]
+        tongue_start = (x + BLOCK // 2, y)
+        tongue_end = (x + BLOCK // 2, y - tongue_length)
+    elif dx > 0:
+        eye_pos = [(x + BLOCK - 5, y + 5), (x + BLOCK - 5, y + BLOCK - 5)]
+        tongue_start = (x + BLOCK, y + BLOCK // 2)
+        tongue_end = (x + BLOCK + tongue_length, y + BLOCK // 2)
+    elif dx < 0:
+        eye_pos = [(x + 5, y + 5), (x + 5, y + BLOCK - 5)]
+        tongue_start = (x, y + BLOCK // 2)
+        tongue_end = (x - tongue_length, y + BLOCK // 2)
+    elif dy > 0:
+        eye_pos = [(x + 5, y + BLOCK - 5), (x + BLOCK - 5, y + BLOCK - 5)]
+        tongue_start = (x + BLOCK // 2, y + BLOCK)
+        tongue_end = (x + BLOCK // 2, y + BLOCK + tongue_length)
+    else:
+        eye_pos = [(x + 5, y + 5), (x + BLOCK - 5, y + 5)]
+        tongue_start = (x + BLOCK // 2, y)
+        tongue_end = (x + BLOCK // 2, y - tongue_length)
+
+    for pos in eye_pos:
+        pygame.draw.circle(win, BLACK, pos, eye_radius)
+
+    pygame.draw.line(win, RED, tongue_start, tongue_end, 2)
+
+def draw_food(x, y, pulse):
+    pygame.draw.circle(win, RED, (int(x + BLOCK / 2), int(y + BLOCK / 2)), int(BLOCK / 2 * (1 + 0.1 * pulse)))
+
+def draw_background_gradient():
+    for i in range(HEIGHT):
+        r = min(max(200 + i // 6, 0), 255)
+        g = min(max(230 - i // 6, 0), 255)
+        b = 255
+        color = (r, g, b)
+        pygame.draw.line(win, color, (0, i), (WIDTH, i))
+
+def message_center(text, color, y_offset=0, size="small"):
+    if size == "small":
+        mesg = font.render(text, True, color)
+    else:
+        mesg = big_font.render(text, True, color)
+    rect = mesg.get_rect(center=(WIDTH / 2, HEIGHT / 2 + y_offset))
+    win.blit(mesg, rect)
+
+def show_score(score, highscore, play_time):
+    s = font.render(f"Score: {score}", True, BLACK)
+    h = font.render(f"High Score: {highscore}", True, BLACK)
+    t = font.render(f"Time: {int(play_time)} s", True, BLACK)
+    win.blit(s, [10, 10])
+    win.blit(h, [WIDTH - 220, 10])
+    win.blit(t, [WIDTH // 2 - 50, 10])
+
+def game_over_screen(score, highscore, play_time):
+    win.fill(WHITE)
+    message_center("Game Over", RED, -80, size="big")
+    message_center(f"Your Score: {score}", BLACK, -30)
+    message_center(f"High Score: {highscore}", BLACK, 10)
+    message_center(f"Time Played: {int(play_time)} seconds", BLACK, 50)
+    message_center("Press R to Restart or Q to Quit", BLUE, 100)
+    pygame.display.update()
+
     while True:
-        x = round(random.randrange(0, width - snakeBlock) / 10.0) * 10.0
-        y = round(random.randrange(0, height - snakeBlock) / 10.0) * 10.0
-        if is_position_free(x, y, obstacles):
-            return x, y
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    game_loop()
+                elif event.key == pygame.K_q:
+                    pygame.quit(); sys.exit()
 
-def draw_minimap(snake_list, food_pos, big_food_pos, obstacles):
-    pygame.draw.rect(screen, dark_gray, (map_x, map_y, map_width, map_height))
-    scale = map_scale
+def game_loop():
+    x, y = WIDTH // 2, HEIGHT // 2
+    dx, dy = 0, 0
 
-    for obs in obstacles:
-        mini_x = int(map_x + obs[0] * scale)
-        mini_y = int(map_y + obs[1] * scale)
-        mini_size = max(1, int(snakeBlock * scale))
-        pygame.draw.rect(screen, gray, (mini_x, mini_y, mini_size, mini_size))
-
-    mini_fx = int(map_x + food_pos[0] * scale)
-    mini_fy = int(map_y + food_pos[1] * scale)
-    mini_size = max(2, int(snakeBlock * scale))
-    pygame.draw.circle(screen, yellow, (mini_fx + mini_size // 2, mini_fy + mini_size // 2), mini_size // 2)
-
-    if big_food_pos:
-        mini_bx = int(map_x + big_food_pos[0] * scale)
-        mini_by = int(map_y + big_food_pos[1] * scale)
-        big_size = max(4, int(snakeBlock * scale * 1.5))
-        pygame.draw.circle(screen, red, (mini_bx + big_size // 2, mini_by + big_size // 2), big_size // 2)
-
-    skin_color = skins[current_skin_index]["color"]
-    for pos in snake_list:
-        mini_sx = int(map_x + pos[0] * scale)
-        mini_sy = int(map_y + pos[1] * scale)
-        mini_size = max(2, int(snakeBlock * scale))
-        pygame.draw.rect(screen, skin_color, (mini_sx, mini_sy, mini_size, mini_size))
-
-def gameLoop():
-    global current_skin_index, unlocked_skins
-
-    snakeSpeed = 10
-    highscore = load_highscore()
-
-    game_over = False
-    game_close = False
-
-    x = width / 2
-    y = height / 2
-    x_change = 0
-    y_change = 0
-
-    snake_list = []
-    length_of_snake = 1
+    snake = []
+    length = 1
     score = 0
+    color_index = 0
 
-    obstacles = generate_obstacles()
+    food_x = round(random.randrange(0, WIDTH - BLOCK) / BLOCK) * BLOCK
+    food_y = round(random.randrange(0, HEIGHT - BLOCK) / BLOCK) * BLOCK
 
-    foodx, foody = random_food_position(obstacles)
-    big_food = None
-    big_food_timer = 0
+    pulse, pulse_dir = 0, 1
+    highscore = load_highscore()
+    start_time = pygame.time.get_ticks()
 
-    while not game_over:
-
-        while game_close:
-            screen.fill(blue)
-            message("Game Over! Press Q-Quit or C-Play Again", red)
-            draw_score(score)
-            draw_speed(snakeSpeed)
-            draw_highscore(highscore)
-            pygame.display.update()
-
-            if score > highscore:
-                highscore = score
-                save_highscore(highscore)
-
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_q:
-                        game_over = True
-                        game_close = False
-                    elif event.key == pygame.K_c:
-                        gameLoop()
+    obstacles = generate_obstacles(set(), (food_x, food_y))  
+    while True:
+        clock.tick(FPS)
+        play_time = (pygame.time.get_ticks() - start_time) / 1000
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game_over = True
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT and x_change == 0:
-                    x_change = -snakeBlock
-                    y_change = 0
-                elif event.key == pygame.K_RIGHT and x_change == 0:
-                    x_change = snakeBlock
-                    y_change = 0
-                elif event.key == pygame.K_UP and y_change == 0:
-                    y_change = -snakeBlock
-                    x_change = 0
-                elif event.key == pygame.K_DOWN and y_change == 0:
-                    y_change = snakeBlock
-                    x_change = 0
+                pygame.quit(); sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT and dx == 0:
+                    dx, dy = -BLOCK, 0
+                elif event.key == pygame.K_RIGHT and dx == 0:
+                    dx, dy = BLOCK, 0
+                elif event.key == pygame.K_UP and dy == 0:
+                    dx, dy = 0, -BLOCK
+                elif event.key == pygame.K_DOWN and dy == 0:
+                    dx, dy = 0, BLOCK
+                elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6]:
+                    idx = event.key - pygame.K_1 
+                    if 0 <= idx < len(SNAKE_COLORS):
+                        color_index = idx
 
-                elif event.key == pygame.K_1 and 0 in unlocked_skins:
-                    current_skin_index = 0
-                elif event.key == pygame.K_2 and 1 in unlocked_skins:
-                    current_skin_index = 1
-                elif event.key == pygame.K_3 and 2 in unlocked_skins:
-                    current_skin_index = 2
+        x += dx
+        y += dy
 
-        x += x_change
-        y += y_change
+        if (x, y) in obstacles:
+            if score > highscore:
+                save_highscore(score)
+                highscore = score
+            game_over_screen(score, highscore, play_time)
 
-        if x >= width or x < 0 or y >= height or y < 0:
-            game_close = True
+        if x < 0 or x >= WIDTH or y < 0 or y >= HEIGHT:
+            if score > highscore:
+                save_highscore(score)
+                highscore = score
+            game_over_screen(score, highscore, play_time)
 
-        screen.fill(black)
-
-        pygame.draw.circle(screen, yellow, (int(foodx) + 5, int(foody) + 5), 6)
-
-        if score % 10 == 0 and score != 0 and big_food is None:
-            big_food_x, big_food_y = random_food_position(obstacles)
-            big_food = [big_food_x, big_food_y]
-            big_food_timer = 100
-
-        if big_food:
-            pygame.draw.circle(screen, red, (int(big_food[0]) + 5, int(big_food[1]) + 5), 10)
-            big_food_timer -= 1
-            if big_food_timer <= 0:
-                big_food = None
-
-        snake_head = [x, y]
-        snake_list.append(snake_head)
-
-        if len(snake_list) > length_of_snake:
-            del snake_list[0]
-
-        for block in snake_list[:-1]:
-            if block == snake_head:
-                game_close = True
-
-        for obs in obstacles:
-            if snake_head[0] == obs[0] and snake_head[1] == obs[1]:
-                game_close = True
+        draw_background_gradient()
 
         draw_obstacles(obstacles)
 
-        skin_color = skins[current_skin_index]["color"]
-        draw_snake(snakeBlock, snake_list, (x_change, y_change), skin_color)
+        draw_food(food_x, food_y, pulse)
+        pulse += pulse_dir
+        if pulse > 5 or pulse < -5:
+            pulse_dir *= -1
 
-        draw_score(score)
-        draw_speed(snakeSpeed)
-        draw_highscore(highscore)
+        snake.append([x, y])
+        if len(snake) > length:
+            del snake[0]
 
-        draw_minimap(snake_list, (foodx, foody), big_food, obstacles)
+        for segment in snake[:-1]:
+            if segment == [x, y]:
+                if score > highscore:
+                    save_highscore(score)
+                    highscore = score
+                game_over_screen(score, highscore, play_time)
 
-        for i, skin in enumerate(skins):
-            if score >= skin["unlock_score"] and i not in unlocked_skins:
-                unlocked_skins.add(i)
-                current_skin_index = i
+        if score != 0 and score % 10 == 0:
+            new_color_index = (score // 10) % len(SNAKE_COLORS)
+            if new_color_index != color_index:
+                color_index = new_color_index
 
-        if x == foodx and y == foody:
-            foodx, foody = random_food_position(obstacles)
-            length_of_snake += 1
-            score += 1
-            if score % 5 == 0:
-                snakeSpeed += 2
-
-        if big_food and x == big_food[0] and y == big_food[1]:
-            big_food = None
-            length_of_snake += 3
-            score += 3
-
+        snake_color = SNAKE_COLORS[color_index % len(SNAKE_COLORS)]
+        draw_snake(snake, snake_color, (dx, dy))
+        show_score(score, highscore, play_time)
         pygame.display.update()
-        clock.tick(snakeSpeed)
 
-    pygame.quit()
-    quit()
+        if x == food_x and y == food_y:
+            length += 1
+            score += 1
 
-gameLoop()
+            snake_positions = set(tuple(pos) for pos in snake)
+            possible_positions = [
+                (ox, oy) for ox in range(0, WIDTH, BLOCK)
+                for oy in range(0, HEIGHT, BLOCK)
+                if (ox, oy) not in obstacles and (ox, oy) not in snake_positions
+            ]
+            if possible_positions:
+                food_x, food_y = random.choice(possible_positions)
+            else:
+                game_over_screen(score, highscore, play_time)
+
+if __name__ == "__main__":
+    game_loop()
